@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartCalc</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg1: #141a26;
+  --bg2: #0e1420;
+  --accent: linear-gradient(135deg,#ff7eb3,#65d6ce);
+  --muted: rgba(255,255,255,0.55);
+  --btn: rgba(255,255,255,0.06);
+  --danger: #ff6b6b;
+}
+body {
+  margin:0;
+  font-family: Inter, sans-serif;
+  background: linear-gradient(180deg,var(--bg1),var(--bg2));
+  color:white;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+.card {
+  width: 350px;
+  padding: 15px;
+  border-radius: 15px;
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(8px);
+}
+.display {
+  background: rgba(255,255,255,0.05);
+  padding: 10px;
+  border-radius: 8px;
+  text-align: right;
+  margin-bottom: 10px;
+}
+.expression { font-size: 14px; color: var(--muted); }
+.result { font-size: 26px; font-weight: bold; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 8px;
+}
+button {
+  height: 50px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  background: var(--btn);
+  color: white;
+}
+button.op { background: rgba(255,255,255,0.1); }
+button.equal { background: var(--accent); color:black; grid-column: span 2; }
+button.clear { color: var(--danger); }
+.history {
+  max-height: 100px;
+  overflow-y: auto;
+  background: rgba(255,255,255,0.05);
+  padding: 5px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-top: 10px;
+  display: none;
+}
+.history-entry {
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.history-entry:last-child {
+  border-bottom: none;
+}
+.clear-history-btn {
+  background: var(--danger);
+  color: white;
+  padding: 5px;
+  font-size: 12px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 5px;
+  width: 100%;
+}
+.clear-history-btn:hover {
+  background: #ff4a4a;
+}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="display">
+    <div class="expression" id="expression">0</div>
+    <div class="result" id="result">0</div>
+  </div>
+  <div class="grid" id="keys">
+    <button class="clear" data-action="clear">C</button>
+    <button data-action="back">⌫</button>
+    <button id="history-toggle">H</button>
+    <button class="op" data-value="/">÷</button>
+
+    <button data-value="7">7</button>
+    <button data-value="8">8</button>
+    <button data-value="9">9</button>
+    <button class="op" data-value="*">×</button>
+
+    <button data-value="4">4</button>
+    <button data-value="5">5</button>
+    <button data-value="6">6</button>
+    <button class="op" data-value="-">−</button>
+
+    <button data-value="1">1</button>
+    <button data-value="2">2</button>
+    <button data-value="3">3</button>
+    <button class="op" data-value="+">+</button>
+
+    <button data-value="0" style="grid-column: span 2;">0</button>
+    <button data-value=".">.</button>
+    <button class="equal" data-action="equals">=</button>
+  </div>
+  <div class="history" id="history">
+    <!-- History entries will appear here -->
+  </div>
+</div>
+
+<script>
+let expr = "";
+let historyList = [];
+const exprEl = document.getElementById("expression");
+const resEl = document.getElementById("result");
+const historyEl = document.getElementById("history");
+
+function render() {
+  exprEl.textContent = expr || "0";
+  try {
+    let val = expr ? Function("return " + expr)() : 0;
+    resEl.textContent = val;
+  } catch {
+    resEl.textContent = "0";
+  }
+}
+
+function updateHistoryUI() {
+  if (historyList.length === 0) {
+    historyEl.innerHTML = "<div style='color:var(--muted);text-align:center;'>No history</div>";
+    return;
+  }
+  historyEl.innerHTML =
+    historyList.map(item => `<div class="history-entry">${item.expression} = ${item.result}</div>`).join("") +
+    `<button class="clear-history-btn" onclick="clearHistory()">Clear History</button>`;
+}
+
+function addToHistory(expression, result) {
+  historyList.unshift({ expression, result });
+  updateHistoryUI();
+}
+
+function clearHistory() {
+  historyList = [];
+  updateHistoryUI();
+}
+
+function calculate() {
+  if (!expr) return;
+  try {
+    let val = Function("return " + expr)();
+    addToHistory(expr, val);
+    expr = String(val);
+  } catch {
+    expr = "";
+  }
+  render();
+}
+
+document.getElementById("keys").addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  const value = btn.dataset.value;
+  const action = btn.dataset.action;
+
+  if (btn.id === "history-toggle") {
+    historyEl.style.display = historyEl.style.display === "none" ? "block" : "none";
+    return;
+  }
+  if (action === "clear") {
+    expr = "";
+    render();
+    return;
+  }
+  if (action === "back") {
+    expr = expr.slice(0, -1);
+    render();
+    return;
+  }
+  if (action === "equals") {
+    calculate();
+    return;
+  }
+  if (value) {
+    expr += value;
+    render();
+  }
+});
+
+// Keyboard support
+document.addEventListener("keydown", (e) => {
+  if ((e.key >= "0" && e.key <= "9") || e.key === ".") {
+    expr += e.key;
+    render();
+  } else if (["+", "-", "*", "/", "%"].includes(e.key)) {
+    expr += e.key;
+    render();
+  } else if (e.key === "Enter" || e.key === "=") {
+    e.preventDefault();
+    calculate();
+  } else if (e.key === "Backspace") {
+    expr = expr.slice(0, -1);
+    render();
+  } else if (e.key === "Escape") {
+    expr = "";
+    render();
+  } else if (e.key.toLowerCase() === "h") {
+    historyEl.style.display = historyEl.style.display === "none" ? "block" : "none";
+  }
+});
+
+render();
+</script>
+
+</body>
+</html>
